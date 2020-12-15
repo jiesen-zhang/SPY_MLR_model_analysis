@@ -1,0 +1,382 @@
+---
+title: "Stat 420 Final Project"
+author: "Akhil Bhamidipati, Jiesen Zhang, Ayan Bhowmick, Raymond Moy"
+date: "12/12/2020"
+output:
+  html_document:
+    highlight: zenburn
+    theme: darkly
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+\newline
+Coronavirus has obviously had a tremendous impact on our day to day lives; as has been the case with many countries, leaders have tried to balance the lives of people against the economic status and growth of the nation. We felt that one good way to measure the economic impact of coronavirus is through stocks - specifically the S&P 500. The reason we chose the S&P 500 is because we feel it has a good range of stocks. Particularly, we feel that it is a good measure because a significant portion of the S&P 500 is Big Tech, which has proven resilient to the coronavirus and thus reflects not only the general impact of covid but also of these tech companies. By reading the different factors and the correlated stock prices, we hope to be able to predict and find the extent to which these factors impact the stock market. The purpose of including other economic indicators was to gain a better personal understanding of how these indicators affect our market in general.
+\newline
+
+**What is this data?**
+
+This data derives from analyzing various datasets regarding the US stock market, COVID-19 data (both US and China), and national unemployment and political attributes. We accumulated these to be evenly distributed across a period of 8 years, disregarding national holidays (which stock markets are closed on).
+
+**Where did it come from/ Why is it interesting to us?**
+
+- Stock Market data
+<br/>
+  https://finance.yahoo.com/quote/SPY/history?p=SPY 
+  
+  *This is the data we are trying to predict the outcome of since we believe     the S&P 500 is a good reflection of the economy in general.*
+
+- COVID-19 data
+<br/>
+  https://ourworldindata.org/coronavirus-source-data
+
+  *We want to use this data since coronavirus is a big part of our life as of     current and we know that it has and has had a significant impact on the      economy. Using this information could give us key insights into how much     COVID has impacted us.*
+  
+- VIX (Volatility Index) data
+<br/>
+  https://finance.yahoo.com/quote/%5EVIX/history?p=%5EVIX 
+  
+  *Investors use the volatility index as a measure to see how much fear or     risk there is in the market expectation for the future. By tracking VIX,    which investors can use to make broader market decisions, we might be able     to predict deeper drops or steeper rises in stock prices.*
+  
+- Unemployment Rates data
+  https://beta.bls.gov/dataViewer/view/timeseries/LNS14000000;jsessionid=A7DA95FF6205EEF162A8031A92AE90AB 
+  
+  *Unemployment rate, when reported and is high, generally has a negative impact on the economy as it is a sign that a particular economy isn’t doing well enough to provide enough jobs to the labor market. This would reflect in the resulting investment into that economy’s existing companies that are supposed to provide said jobs.*
+  
+- Political Data
+<br/>
+ https://www.loc.gov/rr/print/list/057_chron.html 
+ 
+  *One of the key topics discussed in politics is the economic positions of    each party. Faith in the positive economic outcome of one ideology could    bolster investment, while a belief that an ideology could be harmful to     the economy could result in preemptive withdrawals of investments.*
+ 
+- Fiscal Data
+<br/>
+  https://fred.stlouisfed.org/series/GDP 
+  
+  *This is a result showing how the economy of a country is doing overall          over a single quarter. High increases in quarterly GDP indicates that     the economy of that country is growing fast and could be invested in to     yield some of the returns of a growing economy; low increases might         indicate that the economy is stagnant and therefore might be unappealing    to investors.*
+  
+**What are the variables?**
+
+- Dates
+
+- S&P 500 ETF (SPY) Closing Price
+
+- S&P 500 ETF (SPY) Daily Volume
+
+- New Deaths - USA
+
+- New Cases - USA
+
+- New Deaths - China
+
+- New Cases - China
+
+- New Tests - USA
+
+- VIX Open
+
+- VIX Close
+
+- US Monthly Unemployment Rate
+
+- US Sitting President
+
+- US Congress Majority Party
+
+- US Quarterly GDP
+
+**What is the goal of this model?**
+
+Ultimately, we want to find which of these predictor variables are most useful for predicting SPY's closing price and what interactions between these predictors will yield us the most impactful model.
+
+## Methods
+
+### Loading in the Data
+
+First, we load in our data and convert our categorical variables from character types to format types
+
+```{r}
+# reading in our data file
+spy500_predictors = read.csv("spy500_predictors.csv")
+# These are our columns. 
+# We are using the predictors: SPY-Volume, US New Daily Cases, US New Daily Deaths, US New Daily Test, China New Daily Cases, China New Daily Deaths, US Unemployment Rate, US Quarterly GDP, sitting President of US, US Senate majority party, VIX (Volatility Index) Open, VIX Close
+colnames(spy500_predictors)
+
+spy500_predictors$Sitting.President <- factor(spy500_predictors$Sitting.President)
+spy500_predictors$Senate.Majority.Party <- factor(spy500_predictors$Senate.Majority.Party)
+spy500_predictors$Season <- factor(spy500_predictors$Season)
+
+
+```
+
+### Figuring Out Which Predictors to Use
+
+Next, we create plots to observe the general correlation of each of our predictors to the closing price of SPY. 
+
+```{r}
+# Graphical Representation of the response variable vs. each of our predictor variables
+par(mfrow=c(2,2))
+plot(SPY...Close~1, pch = 20, data = spy500_predictors, xlab = "Days past 8/27/12", ylab = "SPY Close", main = "SPY Close Null Model") # this is our null model
+plot(SPY...Close~US.Quarterly.GDP,pch = 20, data = spy500_predictors, xlab = "US Quarterly GDP (in $)", ylab = "SPY Close", main = "US Quarterly GDP vs SPY Close")
+plot(SPY...Close~US.New.Daily.Cases,pch = 20, data = spy500_predictors, xlab = "US New Daily Covid Cases", ylab = "SPY Close", main = "US New Daily Covid Cases vs SPY Close", ylim = c(200, 400))
+plot(SPY...Close~SPY...Volume,pch = 20, data = spy500_predictors,xlab = "SPY Volume", ylab = "SPY Close", main = "SPY Volume vs SPY Close")
+plot(SPY...Close~US.New.Daily.Tests,pch = 20, data = spy500_predictors, xlab = "US New Daily Covid Tests", ylab = "SPY Close", main = "US New Daily Covid Tests vs SPY Close")
+plot(SPY...Close~US.New.Daily.Deaths,pch = 20, data = spy500_predictors, xlab = "US New Daily Covid Deaths", ylab = "SPY Close", main = "US New Daily Covid Deaths vs SPY Close")
+plot(SPY...Close~China.New.Daily.Cases,pch = 20, data = spy500_predictors, xlab = "China New Daily Covid Cases", ylab = "SPY Close", main = "China New Daily Covid Cases vs SPY Close")
+plot(SPY...Close~China.New.Daily.Deaths,pch = 20, data = spy500_predictors, xlab = "US New Daily Covid Cases", ylab = "SPY Close", main = "US New Daily Covid Cases vs SPY Close")
+plot(SPY...Close~US.Unemployment.Rate....,pch = 20, data = spy500_predictors, xlab = "US Unemployment Rate", ylab = "SPY Close", main = "US Unemployment Rate vs SPY Close")
+plot(SPY...Close~VIX...Open,pch = 20, data = spy500_predictors, xlab = "VIX Open", ylab = "SPY Close", main = "Vix Open vs SPY Close")
+plot(SPY...Close~VIX...Close,pch = 20, data = spy500_predictors, xlab = "VIX Close", ylab = "SPY Close", main = "Vix Close vs SPY Close")
+plot(SPY...Close~Senate.Majority.Party, data = spy500_predictors, xlab = "Senate Majority Party (factored)", ylab = "SPY Close", main = "Senate Majority Party vs SPY Close")
+plot(SPY...Close~Sitting.President, data = spy500_predictors, xlab = "Sitting President (factored)", ylab = "SPY Close", main = "Sitting President vs SPY Close")
+```
+
+Based on what we see in the graphs, we can observe that the GPD seems to be positively correlated with the SPY 500's closing price and that the unemployment rate is generally negatively correlated (as expected). Ironically, it seems as though the the number of new daily COVID cases has had a positive impact on closing price as there was widespread panic when the US was at relatively low COVID cases and the economy now seems to have made a full recovery despite COVID cases being higher than ever. Thankfully however, we can observe that deaths still negatively impacted the price of SPY, and the disconnect between deaths and cases can be attributed to the lowering death rate as cases increased. We also see that the number of tests conducted per day appears to have a relatively strong positive correlation to the stock price. 
+
+Indicators like volume and the VIX are actually found to be less correlated than we had expected but must be further tested to truly observe their significance. Also, the data from China seems to have relatively little correlation.
+
+One flaw we discovered while working on this project, which highlighted the ability of statistics to sometimes obscure the truth, was that based on the data frame we chose, it would appear that Donald Trump and the Republican Senate majority have overall been correlated with a higher SPY price over the last 8 years. However, what this fails to account for is that fact that the price of the SPY 500 goes up overall over time, so the last 8 years would be a very biased time frame with the Republican Senate and Donald Trump being associated with the $300+ SPY close priced of 2019 and beyond. 
+
+### Single Predictor Linear Regression Models - For further evaluation of each predictors effectiveness when used alone
+
+```{r, results = 'hold'}
+rmse  = function(m) {
+  sqrt(mean(resid(m) ^ 2))
+}
+
+volume_model = lm(SPY...Close ~ SPY...Volume, data = spy500_predictors)
+print("volume_model: Adj R-squared, R-Squared, RMSE")
+summary(volume_model)$adj.r.squared
+summary(volume_model)$r.squared
+rmse(volume_model)
+
+US_daily_cases_model = lm(SPY...Close ~ US.New.Daily.Cases, data = spy500_predictors)
+print("US_daily_cases_model: ")
+summary(US_daily_cases_model)$adj.r.squared
+summary(US_daily_cases_model)$r.squared
+rmse(US_daily_cases_model)
+
+China_daily_cases_model = lm(SPY...Close ~ China.New.Daily.Cases, data = spy500_predictors)
+print("China_daily_cases_model:")
+summary(China_daily_cases_model)$adj.r.squared
+summary(China_daily_cases_model)$r.squared
+rmse(China_daily_cases_model)
+
+US_unemployment_rate_model = lm(SPY...Close ~ US.Unemployment.Rate...., data = spy500_predictors)
+print("US_unemployment_rate_model: Adj R-squared, R-Squared, RMSE")
+summary(US_unemployment_rate_model)$adj.r.squared
+summary(US_unemployment_rate_model)$r.squared
+rmse(US_unemployment_rate_model)
+
+US_GDP_model = lm(SPY...Close ~ US.Quarterly.GDP, data = spy500_predictors)
+print("US_GDP_model: Adj R-squared, R-Squared, RMSE")
+summary(US_GDP_model)$adj.r.squared
+summary(US_GDP_model)$r.squared
+rmse(US_GDP_model)
+
+US_president_model = lm(SPY...Close ~ Sitting.President, data = spy500_predictors)
+print("US_president_model: Adj R-squared, R-Squared, RMSE")
+summary(US_president_model)$adj.r.squared
+summary(US_president_model)$r.squared
+rmse(US_president_model)
+
+US_senate_majority_model = lm(SPY...Close ~ Senate.Majority.Party, data = spy500_predictors)
+print("US_senate_majority_model: Adj R-squared, R-Squared, RMSE")
+summary(US_senate_majority_model)$adj.r.squared
+summary(US_senate_majority_model)$r.squared
+rmse(US_senate_majority_model)
+
+VIX_open_model = lm(SPY...Close ~ VIX...Open, data = spy500_predictors)
+print("VIX_open_model: Adj R-squared, R-Squared, RMSE")
+summary(VIX_open_model)$adj.r.squared
+summary(VIX_open_model)$r.squared
+rmse(VIX_open_model)
+
+
+VIX_close_model = lm(SPY...Close ~ VIX...Close, data = spy500_predictors)
+print("VIX_close_model: Adj R-squared, R-Squared, RMSE")
+summary(VIX_close_model)$adj.r.squared
+summary(VIX_close_model)$r.squared
+rmse(VIX_close_model)
+
+season_model = lm(SPY...Close ~ Season, data = spy500_predictors)
+print("season_model: Adj R-squared, R-Squared, RMSE")
+summary(season_model)$adj.r.squared
+summary(season_model)$r.squared
+rmse(season_model)
+```
+
+This `R^2`, Adjusted `R^2`, and RMSE of each single predictor linear model are shown and we used these values to gain some intuition as to which predictors we wanted to model.
+
+
+### Naive Additive Model
+
+Now that we have some basic understanding of the predictor variables being used and their general correlation visualized along with some statistics to quantify the correlation, we will begin our statistical modeling with a naive additive model which uses all of the predictor variables.
+
+```{r}
+# The null model against which to compare our additive model in Anova Testing
+null_model = lm(SPY...Close ~ 1, data = spy500_predictors)
+# Creating our naive additive model which uses all of our predictors
+naive_additive_model_full = lm(SPY...Close ~ SPY...Volume + US.New.Daily.Cases + US.New.Daily.Deaths + US.New.Daily.Tests + China.New.Daily.Cases + China.New.Daily.Deaths + US.Unemployment.Rate.... + US.Quarterly.GDP + Sitting.President + Senate.Majority.Party + VIX...Open + VIX...Close + Season, data = spy500_predictors)
+
+# All assumptions of regression model seem to have been met based on these assumption checks
+par(mfrow=c(2,2))
+plot(naive_additive_model_full)
+par(mfrow=c(1,1))
+
+# Checking the results of our first naive additive linear regression model
+predictions = predict(naive_additive_model_full)
+plot(spy500_predictors$SPY...Close ~ 1)
+lines(predictions ~ 1, col = "green")
+
+summary(naive_additive_model_full)
+
+anova(null_model, naive_additive_model_full)
+```
+
+Based on what we observe in the summary of the additive model, the anova tests, and the plot, we have a decent model with a relatively good R^2 value which we can continue to build open. We further confirmed that all of the predictors we were using were significant by individually removing them from the overall model and performing ANOVA tests to conclude that the model would be significantly different with a lower adjusted R-squared value if we removed any one of the predictors. This meant that our full additive model was the best one we had up to this point.
+
+### Polynomial Additive Modeling
+
+Here we intentionally created an over-fitted model so that we could figure out what polynomial of each predictor variable would be best for our model and then went ahead and chose the appropriate polynomials.
+
+```{r}
+overfitted_model = lm(SPY...Close ~ poly(SPY...Volume, 10) + poly(US.New.Daily.Cases, 10) + poly(US.New.Daily.Deaths, 10) + poly(US.New.Daily.Tests, 10) + poly(China.New.Daily.Cases, 1) + poly(China.New.Daily.Deaths, 1) + poly(US.Unemployment.Rate...., 10) + poly(US.Quarterly.GDP, 10) + Sitting.President + Senate.Majority.Party + poly(VIX...Open, 10) + Season, data = spy500_predictors)
+summary(overfitted_model)$adj.r.squared
+rmse(overfitted_model)
+
+par(mfrow=c(2,2))
+plot(overfitted_model)
+par(mfrow=c(1,1))
+
+predictions = predict(overfitted_model)
+plot(spy500_predictors$SPY...Close ~ 1)
+lines(predictions ~ 1, col = "green")
+```
+
+As we can see, our over-fitted model violates some assumptions and is clearly over-fitted in the prediction graph.
+
+### Polynomial and Interactive Modeling
+
+Now that we had figured out which polynomials of predictors to use we were ready to test various interactions until we found the most ideal model for our purpose.
+
+```{r}
+# all assumptions met
+adjusted_polynomial_add_model = lm(SPY...Close ~ poly(SPY...Volume, 2) + poly(US.New.Daily.Cases, 5) + poly(US.New.Daily.Deaths, 3) + poly(US.New.Daily.Tests, 2) + China.New.Daily.Cases + China.New.Daily.Deaths + poly(US.Unemployment.Rate...., 6) + poly(US.Quarterly.GDP, 6) + Sitting.President + Senate.Majority.Party + poly(VIX...Open, 5) + Season, data = spy500_predictors)
+summary(adjusted_polynomial_add_model)$adj.r.squared
+rmse(adjusted_polynomial_add_model)
+par(mfrow=c(2,2))
+plot(adjusted_polynomial_add_model)
+par(mfrow=c(1,1))
+
+# all assumptions met - except a few influential points
+adjusted_polynomial_interactive_model = lm(SPY...Close ~ poly(SPY...Volume, 2) + poly(US.New.Daily.Cases, 5)*poly(US.New.Daily.Deaths, 3) + poly(US.New.Daily.Tests, 2) + China.New.Daily.Cases + China.New.Daily.Deaths + poly(US.Unemployment.Rate...., 6) + poly(US.Quarterly.GDP, 6) + Sitting.President + Senate.Majority.Party + poly(VIX...Open, 5) + Season, data = spy500_predictors)
+summary(adjusted_polynomial_interactive_model)$adj.r.squared
+rmse(adjusted_polynomial_interactive_model)
+par(mfrow=c(2,2))
+plot(adjusted_polynomial_interactive_model)
+par(mfrow=c(1,1))
+
+# Very tighly fit model violating assumptions
+adjusted_polynomial_interactive_model_2 = lm(SPY...Close ~ poly(SPY...Volume, 2)*poly(VIX...Open, 5) + poly(US.New.Daily.Cases, 5)*poly(US.New.Daily.Deaths, 3)*poly(US.New.Daily.Tests, 2) + China.New.Daily.Cases*China.New.Daily.Deaths + poly(US.Unemployment.Rate...., 6) + poly(US.Quarterly.GDP, 6) + Sitting.President + Senate.Majority.Party + Season, data = spy500_predictors)
+summary(adjusted_polynomial_interactive_model_2)$adj.r.squared
+rmse(adjusted_polynomial_interactive_model_2)
+par(mfrow=c(2,2))
+plot(adjusted_polynomial_interactive_model_2)
+par(mfrow=c(1,1))
+
+# another model violating assumptions
+adjusted_polynomial_interactive_model_3 = lm(SPY...Close ~ poly(SPY...Volume, 2)*poly(VIX...Open, 5) + poly(US.New.Daily.Cases, 5)*poly(US.New.Daily.Deaths, 3)*poly(US.New.Daily.Tests, 2) + China.New.Daily.Cases*China.New.Daily.Deaths + poly(US.Unemployment.Rate...., 6)*poly(US.Quarterly.GDP, 6) + Sitting.President + Senate.Majority.Party + Season, data = spy500_predictors)
+summary(adjusted_polynomial_interactive_model_3)$adj.r.squared
+rmse(adjusted_polynomial_interactive_model_3)
+par(mfrow=c(2,2))
+plot(adjusted_polynomial_interactive_model_3)
+par(mfrow=c(1,1))
+
+# Here is our final model with only has less than 5 influential points out of over 2000
+adjusted_polynomial_interactive_model_4 = lm(SPY...Close ~ poly(SPY...Volume, 2) + poly(VIX...Open, 5) + I(SPY...Volume ^ 2)*I(VIX...Open^5) + poly(US.New.Daily.Cases, 5) + poly(US.New.Daily.Deaths, 3) + poly(US.New.Daily.Tests, 2) + I(US.New.Daily.Cases^5)*I(US.New.Daily.Deaths^3)*I(US.New.Daily.Tests^2)  + China.New.Daily.Cases*China.New.Daily.Deaths + poly(US.Unemployment.Rate...., 6) + poly(US.Quarterly.GDP, 6) + I(US.Unemployment.Rate.... ^ 6)*I(US.Quarterly.GDP^6) + Sitting.President + Senate.Majority.Party + Season, data = spy500_predictors)
+summary(adjusted_polynomial_interactive_model_4)$adj.r.squared
+rmse(adjusted_polynomial_interactive_model_4)
+par(mfrow=c(2,2))
+plot(adjusted_polynomial_interactive_model_4)
+par(mfrow=c(1,1))
+
+anova(adjusted_polynomial_add_model, adjusted_polynomial_interactive_model)
+anova(adjusted_polynomial_interactive_model, adjusted_polynomial_interactive_model_4)
+```
+
+Based on our results, the best model we have generated so far is the adjusted_polynomial_interactive_model_2. We will not check how effective this model is at predicting the same time series.
+
+```{r}
+predictions = predict(adjusted_polynomial_interactive_model_4)
+plot(spy500_predictors$SPY...Close ~ 1, xlab = "Days past 8/27/12", ylab = "SPY Close",)
+lines(predictions ~ 1, col = "green")
+```
+
+The final model which we select appears to do a rather good job of modeling the actual price of the SPY 500. As we can see, there have recently been times when the SPY 500 overreacts to corona virus scares, but overall, the economic indicators and COVID measures chosen seem to be fairly correlated with the stock's price.
+
+
+## Results
+
+We have chosen `adjusted_polynomial_interactive_model_4` as our final model. However, we will see that there is an issue.
+
+```{r}
+par(mfrow = c(1,2))
+plot(adjusted_polynomial_interactive_model_4, which = 1, col = "dodgerblue", pch = 20)
+plot(adjusted_polynomial_interactive_model_4, which = 2, col = "dodgerblue", pch = 20)
+```
+
+`adjusted_polynomial_interactive_model_4` does not violate the constant variance, linearity, or normality. While our Q-Q plot tapers off slightly, it is due to the enormous amount of data points we consider.
+
+```{r,warning=FALSE}
+library(faraway)
+vif(adjusted_polynomial_interactive_model_4)
+```
+The issue lies in some predictor variables having extremely high VIF values and therefore `adjusted_polynomial_interactive_model_4` suffers a bit from multicollinearity. We will use Akaike Information Criterion to improve upon our model to arrive at `final_mod`.
+
+```{r}
+final_mod = step(adjusted_polynomial_interactive_model_4, trace = 0, direction = "backward")
+```
+
+```{r}
+par(mfrow = c(1, 2))
+plot(final_mod, which = 1, col = "dodgerblue", pch = 20)
+plot(final_mod, which = 2, col = "dodgerblue", pch = 20)
+```
+`final_mod` does not violate the constant variance, linearity, or normality.
+
+
+```{r, warning=FALSE}
+summary(final_mod)$adj.r.squared
+summary(final_mod)$adj.r.squared > summary(adjusted_polynomial_interactive_model_4)$adj.r.squared
+sum(vif(final_mod) > 5) < sum(vif(adjusted_polynomial_interactive_model_4) > 5)
+extractAIC(final_mod) < extractAIC(adjusted_polynomial_interactive_model_4)
+extractAIC(final_mod, k = log(length(resid(final_mod)))) < extractAIC(adjusted_polynomial_interactive_model_4, k = log(length(resid(adjusted_polynomial_interactive_model_4))))
+```
+We can see that our `final_mod` outperforms `adjusted_polynomial_interactive_model_4`. 
+
+
+## Discussion
+
+From our results we obtain that VIX open, SPY volume, US new daily cases, 
+US new daily deaths, US new daily tests, China new daily cases, China new daily deaths, US unemployment rate, US quarterly gdp, sitting President, Senate majority party, and the seasons are significant predictors for the response of the SPY Closing Price. We omitted VIX Close and the season of fall, since these variables either were dropped in the final step function we used, or caused multiple test statistics to fluctuate (too high of a p-value, R squared value). We also determined that China New Daily Tests were not useful in the creation of various models/plots for our data since there were many sporadic and unnatural patterns within it, so we did not include that either. A certain aspect of our analysis that created cause for concern however, was that it potentially overfits the data, which we determined by observing our predictive model plot that we created. This was potentially caused by the various transformations we performed on our initial model. Our final model is useful to where we are able to use it to predict our response (the SPY Close) for future days where the stock market is open, therefore achieving our goal in finding out which of our predictor variables significantly or insignificantly impacted the stock market in the scope of out dataset.
+
+
+## Appendix
+
+We chose not to data dump the summaries of each individual regression models here because based off of our evaluations, all of the information pertinent to our project has already been included in the methods section. 
+
+
+### Names
+
+Jiesen Zhang (jiesenz2)
+
+Akhil Bhamidipati (akhilsb2)
+
+Raymond Moy (rymoy2)
+
+Ayan Bhowmick (ayanb2)
